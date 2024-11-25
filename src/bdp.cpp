@@ -44,6 +44,13 @@ using BloombergLP::blpapi::Message;
 using BloombergLP::blpapi::MessageIterator;
 using BloombergLP::blpapi::Name;
 
+namespace bbg = BloombergLP::blpapi;
+
+namespace {
+    const bbg::Name RESPONSE_ERROR("responseError");
+}
+
+
 void getBDPResult(Event& event, Rcpp::List& res, const std::vector<std::string>& securities, const std::vector<std::string>& colnames, const std::vector<RblpapiT>& rtypes, bool verbose) {
     MessageIterator msgIter(event);
     if (!msgIter.next()) {
@@ -55,6 +62,17 @@ void getBDPResult(Event& event, Rcpp::List& res, const std::vector<std::string>&
     if (std::strcmp(response.name().string(),"ReferenceDataResponse")) {
         throw std::logic_error("Not a valid ReferenceDataResponse.");
     }
+    if (response.hasElement(RESPONSE_ERROR)) {
+        Element errorElement = msg.getElement(RESPONSE_ERROR);
+        std::string errMsg("");
+        Name messageTag("message");
+        if (errorElement.hasElement(messageTag)) {
+            errMsg = errorElement.getElementAsString(messageTag);
+        }
+        Rcpp::Rcerr << "REQUEST FAILED: " <<  errorElement << std::endl;
+        throw std::logic_error("bdp result: a responseError was received with message: (" + errMsg + ")");
+    }
+
     Element securityData = response.getElement(Name{"securityData"});
 
     for (size_t i = 0; i < securityData.numValues(); ++i) {
